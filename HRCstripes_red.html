@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+
+	<title>HTML5 Canvas</title>
+
+	<script src="lib/modernizr-2.0.6.js"></script>
+	<script src="lib/volume-meter.js"></script>
+	<script type="text/javascript">
+
+	/*
+	Dan Gries
+	rectangleworld.com
+	Support equality for all!
+	visit hrc.org.
+	*/
+
+	window.addEventListener("load", windowLoadHandler, false);
+
+	//for debug messages
+
+	function windowLoadHandler() {
+		canvasApp();
+	}
+
+	function canvasSupport() {
+		return Modernizr.canvas;
+	}
+
+	function rand( min, max ) {
+		return Math.random() * ( max - min ) + min;
+	}
+
+	function randInt( min, max ) {
+		return Math.floor( min + Math.random() * (max - min + 1));
+	}
+
+	function canvasApp() {
+		if (!canvasSupport()) {
+			return;
+		}
+
+		//variables for visualization
+		var canvas = document.getElementById("displayCanvas");
+		var context = canvas.getContext("2d");
+		var width = canvas.width;
+		var height = canvas.height;
+
+		var xCenter,
+		yCenter,
+		startRadius,
+		tick,
+		planets = [];
+		PI = Math.PI,
+		TWOPI = PI * 2;
+
+		//variables for sound
+		var audioContext;
+		var meter;
+		var rafID;
+
+		// monkeypatch Web Audio
+		window.AudioContext = window.AudioContext || window.webkitAudioContext;
+		// grab an audio context
+		audioContext = new AudioContext();
+		// Attempt to get audio input
+		try {
+			// monkeypatch getUserMedia
+			navigator.getUserMedia =
+			navigator.getUserMedia ||
+			navigator.webkitGetUserMedia ||
+			navigator.mozGetUserMedia;
+
+			// ask for an audio input
+			navigator.getUserMedia(
+				{
+					"audio": {
+						"mandatory": {
+							"googEchoCancellation": "false",
+							"googAutoGainControl": "false",
+							"googNoiseSuppression": "false",
+							"googHighpassFilter": "false"
+						},
+						"optional": []
+					},
+				}, gotStream, didntGetStream);
+			} catch (e) {
+				alert('getUserMedia threw exception :' + e);
+			}
+
+			function didntGetStream() {
+				alert('Stream generation failed.');
+			}
+
+			var mediaStreamSource;
+
+			function gotStream(stream) {
+				// Create an AudioNode from the stream.
+				mediaStreamSource = audioContext.createMediaStreamSource(stream);
+
+				// Create a new volume meter and connect it.
+				meter = createAudioMeter(audioContext);
+				mediaStreamSource.connect(meter);
+
+				// kick off the visual updating
+				animatePlanet()
+			}
+
+			init();
+
+			function init() {
+				reset();
+				generate();
+			}
+
+			function generate() {
+
+				context.globalCompositeOperation = "lighter";
+
+				var safetyMargin = 16;
+				var squareSide = width - 2*safetyMargin;
+
+				paintRect(safetyMargin,safetyMargin,squareSide,squareSide, 24,
+					150, 190, 0, 30, 0, 30, 21/255);
+
+					// var topMargin = 0.2*squareSide;
+					// var equalsStripeSize = 0.6*squareSide;
+					// var sideMargin = 0.15*squareSide;
+					// var equalsAlpha = 5/255;
+
+					//context.globalCompositeOperation = "source-over";
+
+					// paintRect(safetyMargin + sideMargin, safetyMargin + topMargin,
+					// 			squareSide - 2*sideMargin,
+					// 			equalsStripeSize,
+					// 			18, 255, 255, 200, 220, 200, 220, equalsAlpha);
+				}
+
+				function animatePlanet(evt) {
+					context.clearRect(0,0,width,height);
+					loop();
+					generate();
+				}
+
+				function Planet() {
+					this.x = xCenter;
+					this.y = yCenter;
+					this.outerRadius = 300;
+					this.gradientOuter = context.createRadialGradient( this.x, this.y, 0, this.x, this.y, this.outerRadius );
+					this.gradientOuter.addColorStop( 0, 'hsla(0, 0%, 50%,' + rand( 0, 0.03 ) + ')' );
+					this.gradientOuter.addColorStop( 1, 'hsla(0, 0%, 100%,'+ rand(0.07, 0.1 ) + ')');
+				}
+
+				Planet.prototype.step = function( i ) {};
+				Planet.prototype.draw = function() {
+					context.save();
+					context.translate( xCenter, yCenter );
+					context.scale( rand( 0.9, 1.1 ), rand( 0.9, 1.1 ));
+					context.translate( -xCenter, -yCenter );
+
+					context.beginPath();
+					context.arc( this.x + rand( -5, 5 ), this.y + rand( -5, 5 ), this.outerRadius + rand( -5 , 5 ), 0, TWOPI, false );
+					context.fillStyle = this.gradientOuter;
+					context.fill();
+
+					context.beginPath();
+					context.arc( this.x + rand( -5, 5 ), this.y + rand( -5, 5 ), this.outerRadius + rand( -1, 1 ), 0, TWOPI, false );
+					context.lineWidth = rand( 1, 10 );
+					context.strokeStyle = 'hsla(0, 0%, 100%,' + rand(0, 0.1) + ')';
+					context.stroke();
+					context.restore();
+				};
+
+				function drawLines(){
+					for( var i = 0; i < height; i += 2 ) {
+						context.beginPath();
+						context.moveTo(0, i + rand(0, 2));
+						context.lineTo( width, i + rand(0,2));
+						context.lineWidth = rand( 0, 2 );
+						context.strokeStyle = 'hsla(0, 0%,' + rand( 0, 30 ) + '%' +rand(0, 0.2) + ')';
+						context.stroke();
+					}
+				}
+
+				function reset() {
+					width = window.innerWidth;
+					height = window.innerHeight;
+					xCenter = width / 2;
+					yCenter = height / 2;
+					startRadius = Math.sqrt( width*width + height*height) / 2 +50;
+					planets.length = 0;
+					tick = 0;
+					canvas.width = width;
+					canvas.height = height;
+					planets.push( new Planet() );
+				}
+
+				function step() {
+					var i = planets.length;
+					while( i -- ){
+						planets[ i ].step( i );
+					}
+				}
+
+				function clear() {
+					context.globalCompositeOperation = 'source-over';
+					if( rand(0,1) > 0.4 ) {
+						context.fillStyle = 'hsla(0, 0%, 0%, 0.3)';
+					} else {
+						context.fillStyle = randInt( 0, 1 ) ? 'hsla(0, 100%, 50%, 0.3)':'hsla(180, 100%, 50%, 0.1)';
+					}
+					context.fillRect( 0, 0, width, height);
+					context.globalCompositeOperation = 'lighter';
+				}
+
+				function draw() {
+					context.save();
+					context.translate( xCenter, yCenter );
+					context.scale( rand( 0.95, 1.05), rand( 1,1 ) );
+					context.translate( -xCenter, -yCenter );
+
+					var i = planets.length;
+					while( i-- ) {
+						planets[ i ].draw();
+					}
+					drawLines();
+					context.restore();
+				}
+
+				function loop() {
+					// console.log(meter.volume);
+					if(meter.volume > 0.1){
+						clear();
+						draw();
+					} else {
+						context.clearRect(0,0,width,height);
+						generate();
+					}
+					requestAnimationFrame( loop );
+					tick++;
+				}
+
+				function setLinePoints(iterations) {
+					var pointList = {};
+					pointList.first = {x:0, y:1};
+					var lastPoint = {x:1, y:1}
+					var minY = 1;
+					var maxY = 1;
+					var point;
+					var nextPoint;
+					var dx, newX, newY;
+					var ratio;
+					var minRatio = 0.33;
+
+					pointList.first.next = lastPoint;
+					for (var i = 0; i < iterations; i++) {
+						point = pointList.first;
+						while (point.next != null) {
+							nextPoint = point.next;
+							ratio = minRatio + Math.random()*(1 - 2*minRatio);
+							newX = point.x + ratio*(nextPoint.x - point.x);
+							//find the smaller interval
+							if (ratio < 0.5) {
+								dx = newX - point.x;
+							}
+							else {
+								dx = nextPoint.x - newX;
+							}
+
+							newY = point.y + ratio*(nextPoint.y - point.y);
+							newY += dx*(Math.random()*2 - 1);
+
+							var newPoint = {x:newX, y:newY};
+
+							//min, max
+							if (newY < minY) {
+								minY = newY;
+							}
+							else if (newY > maxY) {
+								maxY = newY;
+							}
+
+							//put between points
+							newPoint.next = nextPoint;
+							point.next = newPoint;
+
+							point = nextPoint;
+						}
+					}
+
+					//normalize to values between 0 and 1
+					if (maxY != minY) {
+						var normalizeRate = 1/(maxY - minY);
+						point = pointList.first;
+						while (point != null) {
+							point.y = normalizeRate*(point.y - minY);
+							point = point.next;
+						}
+					}
+
+					//unlikely that max = min, but could happen if using zero iterations. In this case, set all points equal to 1.
+					else {
+						point = pointList.first;
+						while (point != null) {
+							point.y = 1;
+							point = point.next;
+						}
+					}
+
+					return pointList;
+				}
+
+				function paintRect(x0, y0, w, h, layers, rMin, rMax, gMin, gMax, bMin, bMax, alphaVariance) {
+					var gap = 0;
+					var numRects = layers;
+					var startX = 5;
+					var startY = 5;
+					var alphaVariance;
+					var cornerDriftX = 1;
+					var cornerDriftY = 1;
+					var drawDriftX = 1.5;
+					var drawDriftY = 5;
+
+					for (var i = 0; i < numRects; i++) {
+
+						//random color
+						r = Math.floor(rMin + Math.random()*(rMax - rMin));
+						g = Math.floor(gMin + Math.random()*(gMax - gMin));
+						b = Math.floor(bMin + Math.random()*(bMax - bMin));
+						a = 0.0;
+
+						//context.globalCompositeOperation = "lighter";
+
+						drawRect(x0,y0,w,h,cornerDriftX,cornerDriftY,drawDriftX,drawDriftY,r,g,b,a,alphaVariance);
+					}
+				}
+
+				function drawRect(x0,y0,w,h,cornerDriftX,cornerDriftY,drawDriftX,drawDriftY,r,g,b,a,alphaVariance) {
+					var corner = [];
+					var driftVector = [];
+					var pointList;
+					var i,j;
+					var nextCorner;
+					var nextX, nextY;
+					var functionPoint;
+					var endpointY;
+					var zeroAlpha = 0.5/255;
+
+					x0 += cornerDriftX*(2*Math.random()-1);
+					y0 += cornerDriftY*(2*Math.random()-1);
+
+					for (i = 0; i < 4; i++) {
+						corner[i] = {};
+					}
+
+					corner[0].x = x0 + cornerDriftX*(Math.random()*2 - 1);
+					corner[0].y = y0 + cornerDriftY*(Math.random()*2 - 1);
+
+					corner[1].x = x0 + w + cornerDriftX*(Math.random()*2 - 1);
+					corner[1].y = y0 + cornerDriftY*(Math.random()*2 - 1);
+
+					corner[2].x = x0 + w + cornerDriftX*(Math.random()*2 - 1);
+					corner[2].y = y0 + h + cornerDriftY*(Math.random()*2 - 1);
+
+					corner[3].x = x0 + cornerDriftX*(Math.random()*2 - 1);
+					corner[3].y = y0 + h + cornerDriftY*(Math.random()*2 - 1);
+
+					driftVector[0] = {x:0, y:drawDriftY};
+					driftVector[1] = {x:drawDriftX, y:0};
+					driftVector[2] = {x:0, y:drawDriftY};
+					driftVector[3] = {x:drawDriftX, y:0};
+
+					//gradient - constant color changes alpha according to subdivision control points.
+					var gradIterates = 8;
+					var numGradSteps = Math.pow(2,gradIterates);
+					var stopNumber = 0;
+					var baseAlpha = a;
+					var gradRGB = "rgba(" + r + "," + g + "," + b + ","; //must complete with alpha
+					var grad;
+					//grad = context.createLinearGradient(corner[0].x,corner[0].y,corner[1].x,corner[1].y + 100 - 200*Math.random());
+
+					if (Math.random() < 0.5) {
+						grad = context.createLinearGradient(corner[0].x,corner[0].y,corner[3].x + 50 - 100*Math.random(),corner[3].y);
+					}
+					else {
+						grad = context.createLinearGradient(corner[0].x,corner[0].y,corner[1].x + 50 - 100*Math.random(),corner[1].y);
+					}
+
+					var gradPoints = setLinePoints(gradIterates);
+					var gradFunctionPoint = gradPoints.first;
+					while (gradFunctionPoint != null) {
+						alpha = baseAlpha + gradFunctionPoint.y*alphaVariance;
+
+						//avoids scientific notation for small numbers screwing up rgba string:
+						if (alpha < zeroAlpha) {
+							alpha = 0;
+						}
+
+						grad.addColorStop(stopNumber/numGradSteps,gradRGB+alpha+")");
+						stopNumber++;
+						gradFunctionPoint = gradFunctionPoint.next;
+					}
+
+					//setting iterates as an array, because some sides will be very short, and a large number of iterates will be wasteful.
+					var iterates = [8,5,8,5];
+
+					//draw
+					context.strokeStyle = grad;
+					context.fillStyle = grad;
+					context.lineWidth = 1;
+					context.beginPath();
+					context.moveTo(corner[0].x,corner[0].y);
+					for (i = 0; i < 4; i++) {
+						nextCorner = corner[(i + 1) % 4];
+						pointList = setLinePoints(iterates[i]);
+						functionPoint = pointList.first;
+						endpointY = functionPoint.y;
+						while (functionPoint != null) {
+							nextX = corner[i].x + functionPoint.x*(nextCorner.x - corner[i].x);
+							nextY = corner[i].y + functionPoint.x*(nextCorner.y - corner[i].y);
+							nextX += driftVector[i].x*(functionPoint.y - endpointY);
+							nextY += driftVector[i].y*(functionPoint.y - endpointY);
+							context.lineTo(nextX, nextY);
+							functionPoint = functionPoint.next;
+						}
+					}
+					context.stroke();
+					context.fill();
+				}
+			}
+
+			</script>
+
+			<title>LANDMARK</title>
+
+			<style type="text/css">
+			body {background-color:#000000; color:#555555;}
+			/*#btnRegenerate {position:absolute; width:80px; text-align:center; top:512px; z-index:1}*/
+			#canvas {position:absolute; top:10px; z-index:0;}
+			#container {width:512px; height:512px; margin:auto;}
+			</style>
+
+		</head>
+		<body>
+			<div id="container">
+				<canvas id="displayCanvas" ></canvas>
+				<!-- <input type="button", id="btnRegenerate" value="animate"/>
+				<input type="button", id="btnMic" value="mic on"/> -->
+			</div>
+		</body>
+		</html>
