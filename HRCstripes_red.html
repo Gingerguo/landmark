@@ -6,7 +6,6 @@
 
 	<title>HTML5 Canvas</title>
 
-	<script src="lib/modernizr-2.0.6.js"></script>
 	<script src="lib/volume-meter.js"></script>
 	<script type="text/javascript">
 
@@ -25,10 +24,6 @@
 		canvasApp();
 	}
 
-	function canvasSupport() {
-		return Modernizr.canvas;
-	}
-
 	function rand( min, max ) {
 		return Math.random() * ( max - min ) + min;
 	}
@@ -38,9 +33,6 @@
 	}
 
 	function canvasApp() {
-		if (!canvasSupport()) {
-			return;
-		}
 
 		//variables for visualization
 		var canvas = document.getElementById("displayCanvas");
@@ -60,6 +52,7 @@
 		var audioContext;
 		var meter;
 		var rafID;
+		var volume;
 
 		// monkeypatch Web Audio
 		window.AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -103,7 +96,6 @@
 				// Create a new volume meter and connect it.
 				meter = createAudioMeter(audioContext);
 				mediaStreamSource.connect(meter);
-
 				// kick off the visual updating
 				animatePlanet()
 			}
@@ -116,21 +108,20 @@
 			}
 
 			function generate() {
-
 				context.globalCompositeOperation = "lighter";
 
 				var safetyMargin = 16;
-				var squareSide = width - 2*safetyMargin;
+				var squareSide = width - safetyMargin;
 
 				paintRect(safetyMargin,safetyMargin,squareSide,squareSide, 24,
 					150, 190, 0, 30, 0, 30, 21/255);
+				//
+				// 	var topMargin = 0.2*squareSide;
+				// 	var equalsStripeSize = 0.6*squareSide;
+				// 	var sideMargin = 0.15*squareSide;
+				// 	var equalsAlpha = 5/255;
 
-					// var topMargin = 0.2*squareSide;
-					// var equalsStripeSize = 0.6*squareSide;
-					// var sideMargin = 0.15*squareSide;
-					// var equalsAlpha = 5/255;
-
-					//context.globalCompositeOperation = "source-over";
+					// context.globalCompositeOperation = "source-over";
 
 					// paintRect(safetyMargin + sideMargin, safetyMargin + topMargin,
 					// 			squareSide - 2*sideMargin,
@@ -230,7 +221,9 @@
 				}
 
 				function loop() {
-					// console.log(meter.volume);
+
+					volume = meter.volume;
+					console.log(volume);
 					if(meter.volume > 0.1){
 						clear();
 						draw();
@@ -438,8 +431,8 @@
 			<style type="text/css">
 			body {background-color:#000000; color:#555555;}
 			/*#btnRegenerate {position:absolute; width:80px; text-align:center; top:512px; z-index:1}*/
-			#canvas {position:absolute; top:10px; z-index:0;}
-			#container {width:512px; height:512px; margin:auto;}
+			#canvas {position:relative; top:10px; z-index:0;}
+			#container {width:auto; height:auto; margin:auto;}
 			</style>
 
 		</head>
