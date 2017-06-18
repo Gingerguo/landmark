@@ -70,12 +70,25 @@ try {
 
   function loop() {
     console.log(meter.volume);
-    if(meter.volume>0.1) {
-      console.log('scream');
+    if(meter.volume>0.1){
+      clear();
+      //draw();
     } else {
-      console.log('ahh');
+      context.clearRect(0,0,width,height);
+      //generate();
     }
     requestAnimationFrame( loop );
+  }
+
+  function clear() {
+    context.globalCompositeOperation = 'source-over';
+    if( rand(0, 1) > 0.4 ) {
+      context.fillStyle = 'hsla(60, 0, 0, 0.3)';
+    } else {
+      context.fillStyle = randInt( 0, 1 ) ? 'hsla(300, 100%, 50%, 0.3)':'hsla(180, 100%, 50%, 0.1)';
+    }
+    context.fillRect( 0, 0, width, height);
+    context.globalCompositeOperation = 'lighter';
   }
 }
 
